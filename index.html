@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>R-Reborn: Virtual Pet</title>
+    <style>
+        :root { --bg: #f8c291; --card: #fad390; --green: #78e08f; --red: #eb2f06; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Arial Rounded MT Bold', sans-serif; }
+        body { background: var(--bg); display: flex; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+
+        .pet-container { background: var(--card); padding: 25px; border-radius: 40px; border: 6px solid #e58e26; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        
+        #pet { font-size: 100px; margin: 20px 0; transition: transform 0.3s ease; display: inline-block; }
+        .bounce { animation: bounce 1s infinite; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
+
+        .stats { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .bar-container { background: white; height: 15px; border-radius: 10px; border: 2px solid #555; overflow: hidden; }
+        .bar-fill { height: 100%; background: var(--green); width: 100%; transition: 0.5s; }
+
+        .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn { background: #e58e26; border: none; padding: 12px; border-radius: 15px; color: white; font-weight: bold; cursor: pointer; font-size: 16px; }
+        .btn:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+
+<div class="pet-container">
+    <h2>R-REBORN</h2>
+    
+    <div id="pet" class="bounce">🐣</div>
+    
+    <div class="stats">
+        <div>Qorin: <div class="bar-container"><div id="hunger-bar" class="bar-fill"></div></div></div>
+        <div>Xursandchilik: <div class="bar-container"><div id="happy-bar" class="bar-fill"></div></div></div>
+    </div>
+
+    <div class="actions">
+        <button class="btn" onclick="feed()">OVQAT 🍎</button>
+        <button class="btn" onclick="play()">O'YIN 🧸</button>
+        <button class="btn" onclick="sleep()">UXLASH 💤</button>
+        <button class="btn" onclick="clean()">YUVISH 🧼</button>
+    </div>
+</div>
+
+<script>
+    let hunger = 100;
+    let happy = 100;
+    let age = 0;
+    const pet = document.getElementById('pet');
+
+    function update() {
+        hunger = Math.max(0, hunger - 0.5);
+        happy = Math.max(0, happy - 0.3);
+        
+        document.getElementById('hunger-bar').style.width = hunger + "%";
+        document.getElementById('happy-bar').style.width = happy + "%";
+
+        // Pet holati
+        if (hunger < 30 || happy < 30) {
+            pet.innerText = '😟';
+        } else if (hunger > 80 && happy > 80) {
+            pet.innerText = age > 5 ? '🦖' : '🐥';
+        } else {
+            pet.innerText = '🙂';
+        }
+
+        if (hunger <= 0) pet.innerText = '💀';
+    }
+
+    function feed() {
+        if (hunger <= 0) return;
+        hunger = Math.min(100, hunger + 20);
+        age += 0.1;
+        pet.style.transform = "scale(1.2)";
+        setTimeout(() => pet.style.transform = "scale(1)", 200);
+    }
+
+    function play() {
+        if (hunger <= 0) return;
+        happy = Math.min(100, happy + 20);
+        pet.style.transform = "rotate(20deg)";
+        setTimeout(() => pet.style.transform = "rotate(0deg)", 200);
+    }
+
+    function sleep() { alert("Maxluqcha dam olmoqda..."); }
+    function clean() { alert("Maxluqcha yuvildi! ✨"); }
+
+    setInterval(update, 1000);
+</script>
+</body>
+</html>
