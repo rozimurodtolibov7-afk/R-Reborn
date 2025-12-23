@@ -1,93 +1,182 @@
 <!DOCTYPE html>
-<html lang="uz">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>R-Reborn: Virtual Pet</title>
+    <title>R-Reborn</title>
     <style>
-        :root { --bg: #f8c291; --card: #fad390; --green: #78e08f; --red: #eb2f06; }
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Arial Rounded MT Bold', sans-serif; }
-        body { background: var(--bg); display: flex; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-
-        .pet-container { background: var(--card); padding: 25px; border-radius: 40px; border: 6px solid #e58e26; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        :root { --soul: #00f3ff; --virus: #ff0055; --bg: #020205; }
+        body { margin: 0; overflow: hidden; background: var(--bg); color: white; font-family: 'Orbitron', sans-serif; touch-action: none; }
         
-        #pet { font-size: 100px; margin: 20px 0; transition: transform 0.3s ease; display: inline-block; }
-        .bounce { animation: bounce 1s infinite; }
-        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
+        #hud { position: fixed; top: 20px; width: 100%; display: flex; justify-content: space-around; z-index: 100; pointer-events: none; }
+        .stat { background: rgba(0, 0, 0, 0.7); padding: 10px 20px; border: 1px solid var(--soul); border-radius: 20px; box-shadow: 0 0 15px var(--soul); }
 
-        .stats { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
-        .bar-container { background: white; height: 15px; border-radius: 10px; border: 2px solid #555; overflow: hidden; }
-        .bar-fill { height: 100%; background: var(--green); width: 100%; transition: 0.5s; }
+        canvas { display: block; }
 
-        .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .btn { background: #e58e26; border: none; padding: 12px; border-radius: 15px; color: white; font-weight: bold; cursor: pointer; font-size: 16px; }
-        .btn:active { transform: scale(0.95); }
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; text-align: center; }
+        button { padding: 15px 60px; font-size: 22px; background: var(--soul); border: none; color: black; font-weight: bold; border-radius: 50px; cursor: pointer; margin-top: 30px; box-shadow: 0 0 30px var(--soul); transition: 0.3s; }
+        button:hover { transform: scale(1.1); }
     </style>
 </head>
 <body>
 
-<div class="pet-container">
-    <h2>R-REBORN</h2>
-    
-    <div id="pet" class="bounce">🐣</div>
-    
-    <div class="stats">
-        <div>Qorin: <div class="bar-container"><div id="hunger-bar" class="bar-fill"></div></div></div>
-        <div>Xursandchilik: <div class="bar-container"><div id="happy-bar" class="bar-fill"></div></div></div>
-    </div>
-
-    <div class="actions">
-        <button class="btn" onclick="feed()">OVQAT 🍎</button>
-        <button class="btn" onclick="play()">O'YIN 🧸</button>
-        <button class="btn" onclick="sleep()">UXLASH 💤</button>
-        <button class="btn" onclick="clean()">YUVISH 🧼</button>
-    </div>
+<div id="hud">
+    <div class="stat">EVOLUTION: <span id="lvl">1</span></div>
+    <div class="stat">RC: <span id="rc">0</span></div>
 </div>
 
+<div id="start-screen" class="overlay">
+    <h1 style="color: var(--soul); font-size: 50px; margin:0; letter-spacing: 10px;">R-REBORN</h1>
+    <p style="opacity: 0.7;">THE MUSIC NEVER ENDS</p>
+    <p>Hold your finger to move away from center.<br>Release to return. Stay in the rhythm!</p>
+    <button onclick="initGame()">AWAKEN</button>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
 <script>
-    let hunger = 100;
-    let happy = 100;
-    let age = 0;
-    const pet = document.getElementById('pet');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let gameActive = false, score = 0, rc = 0, level = 1;
+    let particles = [], viruses = [], souls = [];
+    let angle = 0, radius = 50, isExpanding = false;
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // --- INFINITE GENERATIVE MUSIC ENGINE ---
+    function startInfiniteMusic() {
+        if (!gameActive) return;
+
+        const now = audioCtx.currentTime;
+        const tempo = 0.5; // 120 BPM
+
+        // 1. Permanent Deep Bass Synth
+        const bass = audioCtx.createOscillator();
+        const bassGain = audioCtx.createGain();
+        bass.type = 'triangle';
+        bass.frequency.setValueAtTime(level * 20 + 40, now);
+        bassGain.gain.setValueAtTime(0.05, now);
+        bassGain.gain.exponentialRampToValueAtTime(0.01, now + tempo);
+        bass.connect(bassGain); bassGain.connect(audioCtx.destination);
+        bass.start(); bass.stop(now + tempo);
+
+        // 2. Rhythmic Hi-hats
+        const noise = audioCtx.createOscillator();
+        const noiseGain = audioCtx.createGain();
+        noise.type = 'square';
+        noise.frequency.setValueAtTime(10000, now + 0.25);
+        noiseGain.gain.setValueAtTime(0.02, now + 0.25);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        noise.connect(noiseGain); noiseGain.connect(audioCtx.destination);
+        noise.start(now + 0.25); noise.stop(now + 0.3);
+
+        setTimeout(startInfiniteMusic, tempo * 1000);
+    }
+
+    function playRebornSound() {
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.5);
+        g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+        osc.connect(g); g.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+    }
+
+    function initGame() {
+        document.getElementById('start-screen').style.display = 'none';
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        gameActive = true;
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        startInfiniteMusic();
+        spawnItems();
+        update();
+    }
+
+    window.onpointerdown = () => isExpanding = true;
+    window.onpointerup = () => isExpanding = false;
+
+    function spawnItems() {
+        if(!gameActive) return;
+        if(Math.random() > 0.7) {
+            viruses.push({ a: Math.random()*Math.PI*2, r: 100 + Math.random()*200, speed: 0.02 });
+        }
+        if(Math.random() > 0.8) {
+            souls.push({ a: Math.random()*Math.PI*2, r: 150 + Math.random()*150 });
+        }
+        setTimeout(spawnItems, 1000);
+    }
 
     function update() {
-        hunger = Math.max(0, hunger - 0.5);
-        happy = Math.max(0, happy - 0.3);
-        
-        document.getElementById('hunger-bar').style.width = hunger + "%";
-        document.getElementById('happy-bar').style.width = happy + "%";
+        if(!gameActive) return;
 
-        // Pet holati
-        if (hunger < 30 || happy < 30) {
-            pet.innerText = '😟';
-        } else if (hunger > 80 && happy > 80) {
-            pet.innerText = age > 5 ? '🦖' : '🐥';
-        } else {
-            pet.innerText = '🙂';
-        }
+        ctx.fillStyle = 'rgba(2, 2, 5, 0.15)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        if (hunger <= 0) pet.innerText = '💀';
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        // Player Orbit Logic
+        angle += 0.05;
+        if(isExpanding) radius = Math.min(radius + 5, 250);
+        else radius = Math.max(radius - 5, 50);
+
+        const px = centerX + Math.cos(angle) * radius;
+        const py = centerY + Math.sin(angle) * radius;
+
+        // Draw Player
+        ctx.shadowBlur = 20; ctx.shadowColor = '#00f3ff';
+        ctx.fillStyle = '#00f3ff';
+        ctx.beginPath(); ctx.arc(px, py, 10 + (level*2), 0, Math.PI*2); ctx.fill();
+
+        // Draw Center Core
+        ctx.shadowColor = '#fff';
+        ctx.strokeStyle = '#fff';
+        ctx.beginPath(); ctx.arc(centerX, centerY, 30, 0, Math.PI*2); ctx.stroke();
+
+        // Souls (Collectables)
+        souls.forEach((s, i) => {
+            const sx = centerX + Math.cos(s.a) * s.r;
+            const sy = centerY + Math.sin(s.a) * s.r;
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.arc(sx, sy, 5, 0, Math.PI*2); ctx.fill();
+
+            if(Math.hypot(px - sx, py - sy) < 20) {
+                souls.splice(i, 1);
+                rc += 10;
+                score++;
+                if(score % 5 === 0) { 
+                    level++; 
+                    playRebornSound(); 
+                    document.getElementById('lvl').innerText = level;
+                }
+                document.getElementById('rc').innerText = rc;
+            }
+        });
+
+        // Viruses (Obstacles)
+        viruses.forEach((v, i) => {
+            v.a += v.speed;
+            const vx = centerX + Math.cos(v.a) * v.r;
+            const vy = centerY + Math.sin(v.a) * v.r;
+            ctx.fillStyle = '#ff0055';
+            ctx.beginPath(); ctx.arc(vx, vy, 8, 0, Math.PI*2); ctx.fill();
+
+            if(Math.hypot(px - vx, py - vy) < 15) gameOver();
+            if(v.a > Math.PI*10) viruses.splice(i, 1);
+        });
+
+        requestAnimationFrame(update);
     }
 
-    function feed() {
-        if (hunger <= 0) return;
-        hunger = Math.min(100, hunger + 20);
-        age += 0.1;
-        pet.style.transform = "scale(1.2)";
-        setTimeout(() => pet.style.transform = "scale(1)", 200);
+    function gameOver() {
+        gameActive = false;
+        alert("REBORN CYCLE ENDED. Evolution Level: " + level);
+        location.reload();
     }
-
-    function play() {
-        if (hunger <= 0) return;
-        happy = Math.min(100, happy + 20);
-        pet.style.transform = "rotate(20deg)";
-        setTimeout(() => pet.style.transform = "rotate(0deg)", 200);
-    }
-
-    function sleep() { alert("Maxluqcha dam olmoqda..."); }
-    function clean() { alert("Maxluqcha yuvildi! ✨"); }
-
-    setInterval(update, 1000);
 </script>
 </body>
 </html>
