@@ -3,151 +3,154 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>R-Reborn: Hyper Tunnel</title>
+    <title>R-REBORN</title>
     <style>
-        :root { --neon: #00f3ff; --bg: #020205; }
-        body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Orbitron', sans-serif; touch-action: none; }
-        canvas { display: block; filter: contrast(120%) brightness(110%); }
+        :root { --reborn: #00f3ff; --bg: #050508; }
+        body { margin: 0; overflow: hidden; background: var(--bg); color: white; font-family: 'Orbitron', sans-serif; touch-action: none; }
         
         #hud { position: fixed; top: 20px; width: 100%; display: flex; justify-content: space-around; z-index: 100; pointer-events: none; }
-        .stat { background: rgba(0, 0, 0, 0.8); padding: 10px 20px; border: 1px solid var(--neon); color: var(--neon); border-radius: 5px; box-shadow: 0 0 15px var(--neon); }
+        .stat { background: rgba(0,0,0,0.8); padding: 10px 20px; border: 1px solid var(--reborn); border-radius: 5px; box-shadow: 0 0 15px var(--reborn); }
 
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; text-align: center; color: white; }
-        button { padding: 18px 70px; font-size: 24px; background: var(--neon); border: none; color: black; font-weight: bold; border-radius: 5px; cursor: pointer; margin-top: 30px; box-shadow: 0 0 30px var(--neon); text-transform: uppercase; }
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; text-align: center; }
+        button { padding: 15px 50px; font-size: 22px; background: var(--reborn); border: none; color: black; font-weight: bold; cursor: pointer; border-radius: 5px; margin-top: 30px; box-shadow: 0 0 30px var(--reborn); }
+        
+        #flash { position: fixed; inset: 0; background: white; opacity: 0; pointer-events: none; transition: opacity 0.5s; z-index: 999; }
     </style>
 </head>
 <body>
 
+<div id="flash"></div>
+
 <div id="hud">
-    <div class="stat">VELOCITY: <span id="speed">0</span></div>
-    <div class="stat">RC: <span id="rc">0</span></div>
+    <div class="stat">FORM: <span id="form-name">Cell</span></div>
+    <div class="stat">DNA: <span id="dna">0</span> / 10</div>
 </div>
 
 <div id="start-screen" class="overlay">
-    <h1 style="color: var(--neon); font-size: 50px; margin:0; letter-spacing: 5px;">R-REBORN</h1>
-    <p>THE TUNNEL IS INFINITE. THE MUSIC IS ETERNAL.</p>
-    <p>Drag Left/Right to avoid the energy walls!</p>
-    <button onclick="initGame()">ENTER HYPERSPACE</button>
+    <h1 style="color: var(--reborn); font-size: 50px; margin:0;">R-REBORN</h1>
+    <p>COLLECT ENERGY TO EVOLVE</p>
+    <p>Move your finger to guide the soul.</p>
+    <button onclick="startGame()">EVOLVE</button>
 </div>
 
-<canvas id="tunnelCanvas"></canvas>
+<canvas id="gameCanvas"></canvas>
 
 <script>
-    const canvas = document.getElementById('tunnelCanvas');
+    const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-    let gameActive = false, rc = 0, velocity = 100;
-    let playerX = 0, targetX = 0;
-    let particles = [], obstacles = [];
+    let gameActive = false, dna = 0, stage = 1;
+    let particles = [], energy = [];
+    const player = { x: 0, y: 0, size: 20 };
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // --- CONTINUOUS INDUSTRIAL TECHNO ENGINE ---
-    function startMusic() {
+    // --- INFINITE EVOLVING MUSIC ---
+    function playInfiniteMusic() {
         if (!gameActive) return;
         const now = audioCtx.currentTime;
 
-        // Heavy Bass Kick
-        const kick = audioCtx.createOscillator();
+        // Bass Pulse (Grows with Stage)
+        const bass = audioCtx.createOscillator();
         const g = audioCtx.createGain();
-        kick.frequency.setValueAtTime(60, now);
-        kick.frequency.exponentialRampToValueAtTime(0.01, now + 0.4);
-        g.gain.setValueAtTime(0.4, now);
-        g.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-        kick.connect(g); g.connect(audioCtx.destination);
-        kick.start(); kick.stop(now + 0.4);
+        bass.type = (stage === 1) ? 'sine' : 'sawtooth';
+        bass.frequency.setValueAtTime(50 + (stage * 10), now);
+        g.gain.setValueAtTime(0.05 * stage, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+        bass.connect(g); g.connect(audioCtx.destination);
+        bass.start(); bass.stop(now + 0.5);
 
-        // Synth Lead Loop
-        const synth = audioCtx.createOscillator();
-        const sg = audioCtx.createGain();
-        synth.type = 'sawtooth';
-        synth.frequency.setValueAtTime(110 + (velocity/5), now);
-        sg.gain.setValueAtTime(0.02, now);
-        sg.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-        synth.connect(sg); sg.connect(audioCtx.destination);
-        synth.start(); synth.stop(now + 0.2);
+        // Synth Melody
+        if (stage >= 2) {
+            const synth = audioCtx.createOscillator();
+            const sg = audioCtx.createGain();
+            synth.frequency.setValueAtTime(220 * stage, now);
+            sg.gain.setValueAtTime(0.02, now);
+            sg.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+            synth.connect(sg); sg.connect(audioCtx.destination);
+            synth.start(); synth.stop(now + 0.2);
+        }
 
-        setTimeout(startMusic, 250); // Fast 140 BPM rhythm
+        setTimeout(playInfiniteMusic, 500);
     }
 
-    function initGame() {
+    function startGame() {
         document.getElementById('start-screen').style.display = 'none';
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
+        player.x = canvas.width / 2;
+        player.y = canvas.height / 2;
         gameActive = true;
         if(audioCtx.state === 'suspended') audioCtx.resume();
-        startMusic();
-        spawnObstacle();
+        playInfiniteMusic();
+        spawnEnergy();
         update();
     }
 
+    function spawnEnergy() {
+        if(!gameActive) return;
+        energy.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            r: 5
+        });
+        setTimeout(spawnEnergy, 1000 / stage);
+    }
+
     window.onpointermove = (e) => {
-        targetX = (e.clientX - canvas.width / 2) / (canvas.width / 2);
+        player.x = e.clientX;
+        player.y = e.clientY;
     };
 
-    function spawnObstacle() {
-        if(!gameActive) return;
-        obstacles.push({
-            z: 1000,
-            x: (Math.random() - 0.5) * 2,
-            w: 0.8,
-            h: 0.8,
-            color: Math.random() > 0.5 ? '#00f3ff' : '#ff00ff'
-        });
-        setTimeout(spawnObstacle, Math.max(100, 500 - velocity/2));
+    function reborn() {
+        stage++;
+        dna = 0;
+        document.getElementById('flash').style.opacity = 1;
+        setTimeout(() => document.getElementById('flash').style.opacity = 0, 500);
+        
+        const names = ["Cell", "Core", "Virus", "Master", "God"];
+        document.getElementById('form-name').innerText = names[stage-1] || "Eternal";
+        document.getElementById('dna').innerText = "0";
     }
 
     function update() {
         if(!gameActive) return;
-        ctx.fillStyle = '#020205';
+        ctx.fillStyle = 'rgba(5, 5, 8, 0.2)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        const cx = canvas.width / 2;
-        const cy = canvas.height / 2;
-
-        playerX += (targetX - playerX) * 0.15;
-        velocity += 0.1;
-        document.getElementById('speed').innerText = Math.floor(velocity);
-
-        // Render Tunnel Perspective
-        for(let i = 0; i < 10; i++) {
-            ctx.strokeStyle = `rgba(0, 243, 255, ${0.1 * i})`;
-            ctx.strokeRect(cx - (50 * i) - (playerX * 50), cy - (50 * i), 100 * i, 100 * i);
+        // Draw Player based on Stage (REBORN EFFECT)
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = varColor();
+        ctx.fillStyle = varColor();
+        
+        ctx.beginPath();
+        if (stage === 1) ctx.arc(player.x, player.y, 15, 0, Math.PI*2);
+        else if (stage === 2) ctx.rect(player.x-15, player.y-15, 30, 30);
+        else {
+            ctx.moveTo(player.x, player.y - 20);
+            ctx.lineTo(player.x - 20, player.y + 20);
+            ctx.lineTo(player.x + 20, player.y + 20);
         }
+        ctx.fill();
 
-        // Handle Obstacles
-        obstacles.forEach((ob, i) => {
-            ob.z -= velocity / 10;
-            const size = 1000 / ob.z;
-            const screenX = cx + (ob.x - playerX) * size * 200;
-            const screenY = cy;
-            const sw = ob.w * size * 100;
-            const sh = ob.h * size * 100;
+        // Energy Collection
+        energy.forEach((e, i) => {
+            ctx.fillStyle = "white";
+            ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI*2); ctx.fill();
 
-            if(ob.z > 50) {
-                ctx.fillStyle = ob.color;
-                ctx.shadowBlur = 20; ctx.shadowColor = ob.color;
-                ctx.fillRect(screenX - sw/2, screenY - sh/2, sw, sh);
-                ctx.shadowBlur = 0;
-            } else if(ob.z <= 50 && ob.z > 0) {
-                // Collision Detection
-                if(Math.abs(ob.x - playerX) < 0.4) {
-                    gameOver();
-                }
-            }
-            if(ob.z <= 0) {
-                obstacles.splice(i, 1);
-                rc += 10;
-                document.getElementById('rc').innerText = rc;
+            if(Math.hypot(player.x - e.x, player.y - e.y) < 30) {
+                energy.splice(i, 1);
+                dna++;
+                document.getElementById('dna').innerText = dna;
+                if(dna >= 10) reborn();
             }
         });
 
         requestAnimationFrame(update);
     }
 
-    function gameOver() {
-        gameActive = false;
-        alert("REBORN NECESSARY. Final Velocity: " + Math.floor(velocity));
-        location.reload();
+    function varColor() {
+        const colors = ["#00f3ff", "#ff00ff", "#ffff00", "#00ff00", "#ff0000"];
+        return colors[(stage-1) % 5];
     }
 </script>
 </body>
