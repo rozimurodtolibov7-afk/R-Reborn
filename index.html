@@ -3,86 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>R-Reborn</title>
+    <title>R-Reborn: Hyper Tunnel</title>
     <style>
-        :root { --soul: #00f3ff; --virus: #ff0055; --bg: #020205; }
-        body { margin: 0; overflow: hidden; background: var(--bg); color: white; font-family: 'Orbitron', sans-serif; touch-action: none; }
+        :root { --neon: #00f3ff; --bg: #020205; }
+        body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Orbitron', sans-serif; touch-action: none; }
+        canvas { display: block; filter: contrast(120%) brightness(110%); }
         
         #hud { position: fixed; top: 20px; width: 100%; display: flex; justify-content: space-around; z-index: 100; pointer-events: none; }
-        .stat { background: rgba(0, 0, 0, 0.7); padding: 10px 20px; border: 1px solid var(--soul); border-radius: 20px; box-shadow: 0 0 15px var(--soul); }
+        .stat { background: rgba(0, 0, 0, 0.8); padding: 10px 20px; border: 1px solid var(--neon); color: var(--neon); border-radius: 5px; box-shadow: 0 0 15px var(--neon); }
 
-        canvas { display: block; }
-
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; text-align: center; }
-        button { padding: 15px 60px; font-size: 22px; background: var(--soul); border: none; color: black; font-weight: bold; border-radius: 50px; cursor: pointer; margin-top: 30px; box-shadow: 0 0 30px var(--soul); transition: 0.3s; }
-        button:hover { transform: scale(1.1); }
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; text-align: center; color: white; }
+        button { padding: 18px 70px; font-size: 24px; background: var(--neon); border: none; color: black; font-weight: bold; border-radius: 5px; cursor: pointer; margin-top: 30px; box-shadow: 0 0 30px var(--neon); text-transform: uppercase; }
     </style>
 </head>
 <body>
 
 <div id="hud">
-    <div class="stat">EVOLUTION: <span id="lvl">1</span></div>
+    <div class="stat">VELOCITY: <span id="speed">0</span></div>
     <div class="stat">RC: <span id="rc">0</span></div>
 </div>
 
 <div id="start-screen" class="overlay">
-    <h1 style="color: var(--soul); font-size: 50px; margin:0; letter-spacing: 10px;">R-REBORN</h1>
-    <p style="opacity: 0.7;">THE MUSIC NEVER ENDS</p>
-    <p>Hold your finger to move away from center.<br>Release to return. Stay in the rhythm!</p>
-    <button onclick="initGame()">AWAKEN</button>
+    <h1 style="color: var(--neon); font-size: 50px; margin:0; letter-spacing: 5px;">R-REBORN</h1>
+    <p>THE TUNNEL IS INFINITE. THE MUSIC IS ETERNAL.</p>
+    <p>Drag Left/Right to avoid the energy walls!</p>
+    <button onclick="initGame()">ENTER HYPERSPACE</button>
 </div>
 
-<canvas id="gameCanvas"></canvas>
+<canvas id="tunnelCanvas"></canvas>
 
 <script>
-    const canvas = document.getElementById('gameCanvas');
+    const canvas = document.getElementById('tunnelCanvas');
     const ctx = canvas.getContext('2d');
-    let gameActive = false, score = 0, rc = 0, level = 1;
-    let particles = [], viruses = [], souls = [];
-    let angle = 0, radius = 50, isExpanding = false;
+    let gameActive = false, rc = 0, velocity = 100;
+    let playerX = 0, targetX = 0;
+    let particles = [], obstacles = [];
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // --- INFINITE GENERATIVE MUSIC ENGINE ---
-    function startInfiniteMusic() {
+    // --- CONTINUOUS INDUSTRIAL TECHNO ENGINE ---
+    function startMusic() {
         if (!gameActive) return;
-
         const now = audioCtx.currentTime;
-        const tempo = 0.5; // 120 BPM
 
-        // 1. Permanent Deep Bass Synth
-        const bass = audioCtx.createOscillator();
-        const bassGain = audioCtx.createGain();
-        bass.type = 'triangle';
-        bass.frequency.setValueAtTime(level * 20 + 40, now);
-        bassGain.gain.setValueAtTime(0.05, now);
-        bassGain.gain.exponentialRampToValueAtTime(0.01, now + tempo);
-        bass.connect(bassGain); bassGain.connect(audioCtx.destination);
-        bass.start(); bass.stop(now + tempo);
-
-        // 2. Rhythmic Hi-hats
-        const noise = audioCtx.createOscillator();
-        const noiseGain = audioCtx.createGain();
-        noise.type = 'square';
-        noise.frequency.setValueAtTime(10000, now + 0.25);
-        noiseGain.gain.setValueAtTime(0.02, now + 0.25);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-        noise.connect(noiseGain); noiseGain.connect(audioCtx.destination);
-        noise.start(now + 0.25); noise.stop(now + 0.3);
-
-        setTimeout(startInfiniteMusic, tempo * 1000);
-    }
-
-    function playRebornSound() {
-        const osc = audioCtx.createOscillator();
+        // Heavy Bass Kick
+        const kick = audioCtx.createOscillator();
         const g = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(200, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.5);
-        g.gain.setValueAtTime(0.2, audioCtx.currentTime);
-        g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
-        osc.connect(g); g.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+        kick.frequency.setValueAtTime(60, now);
+        kick.frequency.exponentialRampToValueAtTime(0.01, now + 0.4);
+        g.gain.setValueAtTime(0.4, now);
+        g.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+        kick.connect(g); g.connect(audioCtx.destination);
+        kick.start(); kick.stop(now + 0.4);
+
+        // Synth Lead Loop
+        const synth = audioCtx.createOscillator();
+        const sg = audioCtx.createGain();
+        synth.type = 'sawtooth';
+        synth.frequency.setValueAtTime(110 + (velocity/5), now);
+        sg.gain.setValueAtTime(0.02, now);
+        sg.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+        synth.connect(sg); sg.connect(audioCtx.destination);
+        synth.start(); synth.stop(now + 0.2);
+
+        setTimeout(startMusic, 250); // Fast 140 BPM rhythm
     }
 
     function initGame() {
@@ -91,82 +75,70 @@
         canvas.height = window.innerHeight;
         gameActive = true;
         if(audioCtx.state === 'suspended') audioCtx.resume();
-        startInfiniteMusic();
-        spawnItems();
+        startMusic();
+        spawnObstacle();
         update();
     }
 
-    window.onpointerdown = () => isExpanding = true;
-    window.onpointerup = () => isExpanding = false;
+    window.onpointermove = (e) => {
+        targetX = (e.clientX - canvas.width / 2) / (canvas.width / 2);
+    };
 
-    function spawnItems() {
+    function spawnObstacle() {
         if(!gameActive) return;
-        if(Math.random() > 0.7) {
-            viruses.push({ a: Math.random()*Math.PI*2, r: 100 + Math.random()*200, speed: 0.02 });
-        }
-        if(Math.random() > 0.8) {
-            souls.push({ a: Math.random()*Math.PI*2, r: 150 + Math.random()*150 });
-        }
-        setTimeout(spawnItems, 1000);
+        obstacles.push({
+            z: 1000,
+            x: (Math.random() - 0.5) * 2,
+            w: 0.8,
+            h: 0.8,
+            color: Math.random() > 0.5 ? '#00f3ff' : '#ff00ff'
+        });
+        setTimeout(spawnObstacle, Math.max(100, 500 - velocity/2));
     }
 
     function update() {
         if(!gameActive) return;
-
-        ctx.fillStyle = 'rgba(2, 2, 5, 0.15)';
+        ctx.fillStyle = '#020205';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
 
-        // Player Orbit Logic
-        angle += 0.05;
-        if(isExpanding) radius = Math.min(radius + 5, 250);
-        else radius = Math.max(radius - 5, 50);
+        playerX += (targetX - playerX) * 0.15;
+        velocity += 0.1;
+        document.getElementById('speed').innerText = Math.floor(velocity);
 
-        const px = centerX + Math.cos(angle) * radius;
-        const py = centerY + Math.sin(angle) * radius;
+        // Render Tunnel Perspective
+        for(let i = 0; i < 10; i++) {
+            ctx.strokeStyle = `rgba(0, 243, 255, ${0.1 * i})`;
+            ctx.strokeRect(cx - (50 * i) - (playerX * 50), cy - (50 * i), 100 * i, 100 * i);
+        }
 
-        // Draw Player
-        ctx.shadowBlur = 20; ctx.shadowColor = '#00f3ff';
-        ctx.fillStyle = '#00f3ff';
-        ctx.beginPath(); ctx.arc(px, py, 10 + (level*2), 0, Math.PI*2); ctx.fill();
+        // Handle Obstacles
+        obstacles.forEach((ob, i) => {
+            ob.z -= velocity / 10;
+            const size = 1000 / ob.z;
+            const screenX = cx + (ob.x - playerX) * size * 200;
+            const screenY = cy;
+            const sw = ob.w * size * 100;
+            const sh = ob.h * size * 100;
 
-        // Draw Center Core
-        ctx.shadowColor = '#fff';
-        ctx.strokeStyle = '#fff';
-        ctx.beginPath(); ctx.arc(centerX, centerY, 30, 0, Math.PI*2); ctx.stroke();
-
-        // Souls (Collectables)
-        souls.forEach((s, i) => {
-            const sx = centerX + Math.cos(s.a) * s.r;
-            const sy = centerY + Math.sin(s.a) * s.r;
-            ctx.fillStyle = '#fff';
-            ctx.beginPath(); ctx.arc(sx, sy, 5, 0, Math.PI*2); ctx.fill();
-
-            if(Math.hypot(px - sx, py - sy) < 20) {
-                souls.splice(i, 1);
-                rc += 10;
-                score++;
-                if(score % 5 === 0) { 
-                    level++; 
-                    playRebornSound(); 
-                    document.getElementById('lvl').innerText = level;
+            if(ob.z > 50) {
+                ctx.fillStyle = ob.color;
+                ctx.shadowBlur = 20; ctx.shadowColor = ob.color;
+                ctx.fillRect(screenX - sw/2, screenY - sh/2, sw, sh);
+                ctx.shadowBlur = 0;
+            } else if(ob.z <= 50 && ob.z > 0) {
+                // Collision Detection
+                if(Math.abs(ob.x - playerX) < 0.4) {
+                    gameOver();
                 }
+            }
+            if(ob.z <= 0) {
+                obstacles.splice(i, 1);
+                rc += 10;
                 document.getElementById('rc').innerText = rc;
             }
-        });
-
-        // Viruses (Obstacles)
-        viruses.forEach((v, i) => {
-            v.a += v.speed;
-            const vx = centerX + Math.cos(v.a) * v.r;
-            const vy = centerY + Math.sin(v.a) * v.r;
-            ctx.fillStyle = '#ff0055';
-            ctx.beginPath(); ctx.arc(vx, vy, 8, 0, Math.PI*2); ctx.fill();
-
-            if(Math.hypot(px - vx, py - vy) < 15) gameOver();
-            if(v.a > Math.PI*10) viruses.splice(i, 1);
         });
 
         requestAnimationFrame(update);
@@ -174,7 +146,7 @@
 
     function gameOver() {
         gameActive = false;
-        alert("REBORN CYCLE ENDED. Evolution Level: " + level);
+        alert("REBORN NECESSARY. Final Velocity: " + Math.floor(velocity));
         location.reload();
     }
 </script>
