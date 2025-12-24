@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>R-Reborn: Neon Shatter</title>
+    <title>R-Reborn: Balanced</title>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: 'Arial', sans-serif; }
-        #ui { position: absolute; top: 20px; color: #fff; font-size: 24px; text-shadow: 0 0 10px #0ff; pointer-events: none; z-index: 10; }
+        body { margin: 0; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: 'Segoe UI', sans-serif; }
+        #ui { position: absolute; top: 20px; color: #fff; font-size: 22px; text-shadow: 0 0 10px #0ff; pointer-events: none; z-index: 10; letter-spacing: 2px; }
         canvas { background: #000; cursor: crosshair; }
     </style>
 </head>
 <body>
-    <div id="ui">REBORN POWER: <span id="score">0</span></div>
+    <div id="ui">REBORN ENERGY: <span id="score">0</span></div>
     <canvas id="game"></canvas>
 
 <script>
@@ -23,10 +23,11 @@
     canvas.height = window.innerHeight;
 
     let score = 0, gameActive = true, musicStarted = false;
-    let player = { x: canvas.width/2, y: canvas.height/2, r: 15, targetX: canvas.width/2, targetY: canvas.height/2 };
+    // Player configuration
+    let player = { x: canvas.width/2, y: canvas.height/2, r: 12, targetX: canvas.width/2, targetY: canvas.height/2 };
     let enemies = [];
 
-    // Cyber-Trance Music Generator
+    // Ambient Synth Music
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playTranceMusic() {
         if (musicStarted) return; musicStarted = true;
@@ -34,17 +35,16 @@
             if(!gameActive) return;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.type = 'sawtooth';
-            const notes = [130, 164, 196, 220]; // Bass sequence
-            osc.frequency.setValueAtTime(notes[Math.floor(Date.now()/250)%4], audioCtx.currentTime);
+            osc.type = 'sine'; // Yumshoqroq ovoz uchun sine ishlatildi
+            const notes = [196, 220, 261, 329]; 
+            osc.frequency.setValueAtTime(notes[Math.floor(Date.now()/1000)%4], audioCtx.currentTime);
             gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
             osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.2);
-        }, 125);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.8);
+        }, 1000);
     }
 
-    // Harakat: Bosilgan nuqtaga sakrash
     window.addEventListener("pointerdown", (e) => {
         playTranceMusic();
         player.targetX = e.clientX;
@@ -52,38 +52,38 @@
     });
 
     function spawnEnemy() {
-        if (Math.random() < 0.05 + score/5000) {
+        // Ehtimollik 0.02 ga tushirildi (kamroq dushman chiqadi)
+        if (Math.random() < 0.02) {
             const side = Math.floor(Math.random() * 4);
             let x, y;
-            if(side === 0) { x = Math.random()*canvas.width; y = -20; }
-            else if(side === 1) { x = canvas.width+20; y = Math.random()*canvas.height; }
-            else if(side === 2) { x = Math.random()*canvas.width; y = canvas.height+20; }
-            else { x = -20; y = Math.random()*canvas.height; }
+            if(side === 0) { x = Math.random()*canvas.width; y = -30; }
+            else if(side === 1) { x = canvas.width+30; y = Math.random()*canvas.height; }
+            else if(side === 2) { x = Math.random()*canvas.width; y = canvas.height+30; }
+            else { x = -30; y = Math.random()*canvas.height; }
 
             const angle = Math.atan2(player.y - y, player.x - x);
-            enemies.push({ x, y, vx: Math.cos(angle) * (3 + score/100), vy: Math.sin(angle) * (3 + score/100) });
+            // Tezlik 2 ga tushirildi (sekinroq harakat)
+            enemies.push({ x, y, vx: Math.cos(angle) * 2, vy: Math.sin(angle) * 2 });
         }
     }
 
     function update() {
         if (!gameActive) return;
 
-        // Player smooth movement
-        player.x += (player.targetX - player.x) * 0.15;
-        player.y += (player.targetY - player.y) * 0.15;
+        // Sekinroq va silliqroq harakat (0.08)
+        player.x += (player.targetX - player.x) * 0.08;
+        player.y += (player.targetY - player.y) * 0.08;
 
         enemies.forEach((en, i) => {
             en.x += en.vx;
             en.y += en.vy;
 
-            // To'qnashuv
             const dist = Math.sqrt((player.x - en.x)**2 + (player.y - en.y)**2);
-            if (dist < player.r + 5) {
+            if (dist < player.r + 6) {
                 gameOver();
             }
 
-            // Ekrandan chiqsa o'chirish
-            if (en.x < -50 || en.x > canvas.width+50 || en.y < -50 || en.y > canvas.height+50) {
+            if (en.x < -100 || en.x > canvas.width+100 || en.y < -100 || en.y > canvas.height+100) {
                 enemies.splice(i, 1);
                 score += 10;
                 scoreEl.innerText = score;
@@ -92,24 +92,23 @@
     }
 
     function draw() {
-        // Motion Blur effekti
-        ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+        ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Player (Yadro)
-        ctx.shadowBlur = 20;
+        // Player
+        ctx.shadowBlur = 15;
         ctx.shadowColor = "#0ff";
         ctx.fillStyle = "#fff";
         ctx.beginPath();
         ctx.arc(player.x, player.y, player.r, 0, Math.PI*2);
         ctx.fill();
 
-        // Enemies (Lazer nurlari)
+        // Enemies (Qizil/Pushti nurlar)
         ctx.shadowColor = "#f0f";
         ctx.fillStyle = "#f0f";
         enemies.forEach(en => {
             ctx.beginPath();
-            ctx.arc(en.x, en.y, 5, 0, Math.PI*2);
+            ctx.arc(en.x, en.y, 6, 0, Math.PI*2);
             ctx.fill();
         });
 
@@ -121,7 +120,7 @@
 
     function gameOver() {
         gameActive = false;
-        alert("SHATTERED! Reborn Energy: " + score);
+        alert("REBIRTH NEEDED! Energy: " + score);
         location.reload();
     }
 
