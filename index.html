@@ -3,155 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>R-REBORN</title>
+    <title>R-Reborn: Neon Shatter</title>
     <style>
-        :root { --reborn: #00f3ff; --bg: #050508; }
-        body { margin: 0; overflow: hidden; background: var(--bg); color: white; font-family: 'Orbitron', sans-serif; touch-action: none; }
-        
-        #hud { position: fixed; top: 20px; width: 100%; display: flex; justify-content: space-around; z-index: 100; pointer-events: none; }
-        .stat { background: rgba(0,0,0,0.8); padding: 10px 20px; border: 1px solid var(--reborn); border-radius: 5px; box-shadow: 0 0 15px var(--reborn); }
-
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; text-align: center; }
-        button { padding: 15px 50px; font-size: 22px; background: var(--reborn); border: none; color: black; font-weight: bold; cursor: pointer; border-radius: 5px; margin-top: 30px; box-shadow: 0 0 30px var(--reborn); }
-        
-        #flash { position: fixed; inset: 0; background: white; opacity: 0; pointer-events: none; transition: opacity 0.5s; z-index: 999; }
+        body { margin: 0; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: 'Arial', sans-serif; }
+        #ui { position: absolute; top: 20px; color: #fff; font-size: 24px; text-shadow: 0 0 10px #0ff; pointer-events: none; z-index: 10; }
+        canvas { background: #000; cursor: crosshair; }
     </style>
 </head>
 <body>
-
-<div id="flash"></div>
-
-<div id="hud">
-    <div class="stat">FORM: <span id="form-name">Cell</span></div>
-    <div class="stat">DNA: <span id="dna">0</span> / 10</div>
-</div>
-
-<div id="start-screen" class="overlay">
-    <h1 style="color: var(--reborn); font-size: 50px; margin:0;">R-REBORN</h1>
-    <p>COLLECT ENERGY TO EVOLVE</p>
-    <p>Move your finger to guide the soul.</p>
-    <button onclick="startGame()">EVOLVE</button>
-</div>
-
-<canvas id="gameCanvas"></canvas>
+    <div id="ui">REBORN POWER: <span id="score">0</span></div>
+    <canvas id="game"></canvas>
 
 <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    let gameActive = false, dna = 0, stage = 1;
-    let particles = [], energy = [];
-    const player = { x: 0, y: 0, size: 20 };
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const scoreEl = document.getElementById("score");
 
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let score = 0, gameActive = true, musicStarted = false;
+    let player = { x: canvas.width/2, y: canvas.height/2, r: 15, targetX: canvas.width/2, targetY: canvas.height/2 };
+    let enemies = [];
+
+    // Cyber-Trance Music Generator
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playTranceMusic() {
+        if (musicStarted) return; musicStarted = true;
+        setInterval(() => {
+            if(!gameActive) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            const notes = [130, 164, 196, 220]; // Bass sequence
+            osc.frequency.setValueAtTime(notes[Math.floor(Date.now()/250)%4], audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+        }, 125);
+    }
 
-    // --- INFINITE EVOLVING MUSIC ---
-    function playInfiniteMusic() {
-        if (!gameActive) return;
-        const now = audioCtx.currentTime;
+    // Harakat: Bosilgan nuqtaga sakrash
+    window.addEventListener("pointerdown", (e) => {
+        playTranceMusic();
+        player.targetX = e.clientX;
+        player.targetY = e.clientY;
+    });
 
-        // Bass Pulse (Grows with Stage)
-        const bass = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        bass.type = (stage === 1) ? 'sine' : 'sawtooth';
-        bass.frequency.setValueAtTime(50 + (stage * 10), now);
-        g.gain.setValueAtTime(0.05 * stage, now);
-        g.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-        bass.connect(g); g.connect(audioCtx.destination);
-        bass.start(); bass.stop(now + 0.5);
+    function spawnEnemy() {
+        if (Math.random() < 0.05 + score/5000) {
+            const side = Math.floor(Math.random() * 4);
+            let x, y;
+            if(side === 0) { x = Math.random()*canvas.width; y = -20; }
+            else if(side === 1) { x = canvas.width+20; y = Math.random()*canvas.height; }
+            else if(side === 2) { x = Math.random()*canvas.width; y = canvas.height+20; }
+            else { x = -20; y = Math.random()*canvas.height; }
 
-        // Synth Melody
-        if (stage >= 2) {
-            const synth = audioCtx.createOscillator();
-            const sg = audioCtx.createGain();
-            synth.frequency.setValueAtTime(220 * stage, now);
-            sg.gain.setValueAtTime(0.02, now);
-            sg.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-            synth.connect(sg); sg.connect(audioCtx.destination);
-            synth.start(); synth.stop(now + 0.2);
+            const angle = Math.atan2(player.y - y, player.x - x);
+            enemies.push({ x, y, vx: Math.cos(angle) * (3 + score/100), vy: Math.sin(angle) * (3 + score/100) });
         }
-
-        setTimeout(playInfiniteMusic, 500);
-    }
-
-    function startGame() {
-        document.getElementById('start-screen').style.display = 'none';
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        player.x = canvas.width / 2;
-        player.y = canvas.height / 2;
-        gameActive = true;
-        if(audioCtx.state === 'suspended') audioCtx.resume();
-        playInfiniteMusic();
-        spawnEnergy();
-        update();
-    }
-
-    function spawnEnergy() {
-        if(!gameActive) return;
-        energy.push({
-            x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height,
-            r: 5
-        });
-        setTimeout(spawnEnergy, 1000 / stage);
-    }
-
-    window.onpointermove = (e) => {
-        player.x = e.clientX;
-        player.y = e.clientY;
-    };
-
-    function reborn() {
-        stage++;
-        dna = 0;
-        document.getElementById('flash').style.opacity = 1;
-        setTimeout(() => document.getElementById('flash').style.opacity = 0, 500);
-        
-        const names = ["Cell", "Core", "Virus", "Master", "God"];
-        document.getElementById('form-name').innerText = names[stage-1] || "Eternal";
-        document.getElementById('dna').innerText = "0";
     }
 
     function update() {
-        if(!gameActive) return;
-        ctx.fillStyle = 'rgba(5, 5, 8, 0.2)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        if (!gameActive) return;
 
-        // Draw Player based on Stage (REBORN EFFECT)
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = varColor();
-        ctx.fillStyle = varColor();
-        
-        ctx.beginPath();
-        if (stage === 1) ctx.arc(player.x, player.y, 15, 0, Math.PI*2);
-        else if (stage === 2) ctx.rect(player.x-15, player.y-15, 30, 30);
-        else {
-            ctx.moveTo(player.x, player.y - 20);
-            ctx.lineTo(player.x - 20, player.y + 20);
-            ctx.lineTo(player.x + 20, player.y + 20);
-        }
-        ctx.fill();
+        // Player smooth movement
+        player.x += (player.targetX - player.x) * 0.15;
+        player.y += (player.targetY - player.y) * 0.15;
 
-        // Energy Collection
-        energy.forEach((e, i) => {
-            ctx.fillStyle = "white";
-            ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI*2); ctx.fill();
+        enemies.forEach((en, i) => {
+            en.x += en.vx;
+            en.y += en.vy;
 
-            if(Math.hypot(player.x - e.x, player.y - e.y) < 30) {
-                energy.splice(i, 1);
-                dna++;
-                document.getElementById('dna').innerText = dna;
-                if(dna >= 10) reborn();
+            // To'qnashuv
+            const dist = Math.sqrt((player.x - en.x)**2 + (player.y - en.y)**2);
+            if (dist < player.r + 5) {
+                gameOver();
+            }
+
+            // Ekrandan chiqsa o'chirish
+            if (en.x < -50 || en.x > canvas.width+50 || en.y < -50 || en.y > canvas.height+50) {
+                enemies.splice(i, 1);
+                score += 10;
+                scoreEl.innerText = score;
             }
         });
-
-        requestAnimationFrame(update);
     }
 
-    function varColor() {
-        const colors = ["#00f3ff", "#ff00ff", "#ffff00", "#00ff00", "#ff0000"];
-        return colors[(stage-1) % 5];
+    function draw() {
+        // Motion Blur effekti
+        ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Player (Yadro)
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = "#0ff";
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.r, 0, Math.PI*2);
+        ctx.fill();
+
+        // Enemies (Lazer nurlari)
+        ctx.shadowColor = "#f0f";
+        ctx.fillStyle = "#f0f";
+        enemies.forEach(en => {
+            ctx.beginPath();
+            ctx.arc(en.x, en.y, 5, 0, Math.PI*2);
+            ctx.fill();
+        });
+
+        ctx.shadowBlur = 0;
+        update();
+        spawnEnemy();
+        requestAnimationFrame(draw);
     }
+
+    function gameOver() {
+        gameActive = false;
+        alert("SHATTERED! Reborn Energy: " + score);
+        location.reload();
+    }
+
+    draw();
 </script>
 </body>
 </html>
